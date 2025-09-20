@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
+// Interfaces (for TypeScript safety—no more 'any' errors!)
 interface UniverseAsset {
   name: string;
   szDecimals: number;
@@ -23,6 +24,15 @@ interface ApiResponse {
 interface VaultDetailsResponse {
   apr: number;
   // Other fields omitted for brevity
+}
+
+// New Asset interface (fixes ESLint any type!)
+interface Asset {
+  name: string;
+  funding: string;
+  annualizedYield: number;
+  openInterest: string;
+  maxLeverage: number;
 }
 
 async function fetchHyperliquidData(): Promise<ApiResponse> {
@@ -54,7 +64,7 @@ function calculateAnnualizedYield(funding: string): number {
 }
 
 export default function Home() {
-  const [assets, setAssets] = useState<any[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]); // FIXED: Use Asset type!
   const [hlpYield, setHlpYield] = useState<number | null>(null);
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc'); // Start with highest first!
   const [loading, setLoading] = useState(true);
@@ -70,7 +80,7 @@ export default function Home() {
           const ctx = data.assetCtxs[i];
           return ctx && parseFloat(ctx.openInterest || '0') > 0;
         });
-        const newAssets = activeUniverse.map((u) => {
+        const newAssets: Asset[] = activeUniverse.map((u) => {
           // Find the matching ctx by name (safer)
           const ctxIndex = data.universe.findIndex(au => au.name === u.name);
           const ctx = data.assetCtxs[ctxIndex] || { funding: '0', openInterest: '0' };
