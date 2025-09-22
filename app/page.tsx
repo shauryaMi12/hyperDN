@@ -25,6 +25,16 @@ interface VaultDetailsResponse {
   // Other fields omitted for brevity
 }
 
+// New: Blueprint for your assets (fixes the 'any' gremlin!)
+interface Asset {
+  name: string;
+  funding: string;
+  annualizedYield: number;
+  openInterest: string;
+  currentPrice: number;
+  maxLeverage: number;
+}
+
 async function fetchHyperliquidData(): Promise<ApiResponse> {
   const response = await fetch('https://api.hyperliquid.xyz/info', {
     method: 'POST',
@@ -54,7 +64,8 @@ function calculateAnnualizedYield(funding: string): number {
 }
 
 export default function Home() {
-  const [assets, setAssets] = useState<any[]>([]);
+  // Fixed: Now uses Asset[] instead of any[] (line ~57)
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [hlpYield, setHlpYield] = useState<number | null>(null);
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc'); // Start with highest first!
   const [loading, setLoading] = useState(true);
