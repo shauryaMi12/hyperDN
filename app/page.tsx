@@ -25,7 +25,7 @@ interface VaultDetailsResponse {
   // Other fields omitted for brevity
 }
 
-// New: Blueprint for your assets (fixes the 'any' gremlin!)
+// Blueprint for your assets (keeps ESLint happy!)
 interface Asset {
   name: string;
   funding: string;
@@ -33,6 +33,7 @@ interface Asset {
   openInterest: string;
   currentPrice: number;
   maxLeverage: number;
+  assetIndex: number; // New: Original index for correct URL!
 }
 
 async function fetchHyperliquidData(): Promise<ApiResponse> {
@@ -64,7 +65,6 @@ function calculateAnnualizedYield(funding: string): number {
 }
 
 export default function Home() {
-  // Fixed: Now uses Asset[] instead of any[] (line ~57)
   const [assets, setAssets] = useState<Asset[]>([]);
   const [hlpYield, setHlpYield] = useState<number | null>(null);
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc'); // Start with highest first!
@@ -76,24 +76,22 @@ export default function Home() {
         setLoading(true);
         // Fetch perps data
         const data = await fetchHyperliquidData();
-        // Filter only busy coins with open interest > 0 (active perps!)
-        const activeUniverse = data.universe.filter((u, i) => {
-          const ctx = data.assetCtxs[i];
-          return ctx && parseFloat(ctx.openInterest || '0') > 0;
-        });
-        const newAssets = activeUniverse.map((u) => {
-          // Find the matching ctx by name (safer)
-          const ctxIndex = data.universe.findIndex(au => au.name === u.name);
-          const ctx = data.assetCtxs[ctxIndex] || { funding: '0', openInterest: '0', markPx: '0' };
-          return {
-            name: u.name,
-            funding: ctx.funding || 'N/A',
-            annualizedYield: calculateAnnualizedYield(ctx.funding || '0'),
-            openInterest: ctx.openInterest || '0',
-            currentPrice: parseFloat(ctx.markPx || '0'), // New: Current perp price!
-            maxLeverage: u.maxLeverage,
-          };
-        });
+        // Fixed: Direct zip with index (ensures correct ctx & URL index match!)
+        const newAssets = data.universe
+          .map((u, i) => {
+            const ctx = data.assetCtxs[i] || { funding: '0', openInterest: '0', markPx: '0' };
+            if (parseFloat(ctx.openInterest || '0') <= 0) return null; // Skip quiet ones
+            return {
+              name: u.name,
+              funding: ctx.funding || 'N/A',
+              annualizedYield: calculateAnnualizedYield(ctx.funding || '0'),
+              openInterest: ctx.openInterest || '0',
+              currentPrice: parseFloat(ctx.markPx || '0'),
+              maxLeverage: u.maxLeverage,
+              assetIndex: i, // New: Keep original index for URL!
+            };
+          })
+          .filter(Boolean); // Drop nulls
         setAssets(newAssets);
 
         // Fetch HLP yield
@@ -161,7 +159,7 @@ export default function Home() {
                 <tr key={asset.name} className="border-t">
                   <td className="px-4 py-2">
                     <a 
-                      href={`https://app.hyperliquid.xyz/trade?asset=${asset.name}`} 
+                      href={`https://app.hyperliquid.xyz/trade?asset=${asset.assetIndex}`} 
                       target="_blank" 
                       rel="noopener noreferrer" 
                       className="font-mono text-blue-600 hover:underline cursor-pointer"
