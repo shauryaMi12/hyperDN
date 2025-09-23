@@ -33,7 +33,7 @@ interface Asset {
   openInterest: string;
   currentPrice: number;
   maxLeverage: number;
-  assetIndex: number; // New: Original index for correct URL!
+  assetIndex: number; // Original index for correct URL!
 }
 
 async function fetchHyperliquidData(): Promise<ApiResponse> {
@@ -67,7 +67,8 @@ function calculateAnnualizedYield(funding: string): number {
 export default function Home() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [hlpYield, setHlpYield] = useState<number | null>(null);
-  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc'); // Start with highest first!
+  const [sortKey, setSortKey] = useState<'yield' | 'oi' | 'price' | 'leverage'>('yield'); // Which column to sort
+  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc'); // Direction
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,7 +77,7 @@ export default function Home() {
         setLoading(true);
         // Fetch perps data
         const data = await fetchHyperliquidData();
-        // Fixed: Direct zip with index (ensures correct ctx & URL index match!)
+        // Direct zip with index (ensures correct ctx & URL index match!)
         const newAssets = data.universe
           .map((u, i) => {
             const ctx = data.assetCtxs[i] || { funding: '0', openInterest: '0', markPx: '0' };
@@ -88,10 +89,10 @@ export default function Home() {
               openInterest: ctx.openInterest || '0',
               currentPrice: parseFloat(ctx.markPx || '0'),
               maxLeverage: u.maxLeverage,
-              assetIndex: i, // New: Keep original index for URL!
+              assetIndex: i, // Original index for correct URL!
             };
           })
-          .filter(Boolean); // Drop nulls
+          .filter((asset): asset is Asset => asset !== null); // Type guard: Drop nulls & narrow to Asset[]
         setAssets(newAssets);
 
         // Fetch HLP yield
@@ -108,16 +109,39 @@ export default function Home() {
     loadData();
   }, []);
 
-  const handleSort = () => {
-    setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+  const handleSort = (key: 'yield' | 'oi' | 'price' | 'leverage') => {
+    if (sortKey === key) {
+      setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc'); // Toggle if same key
+    } else {
+      setSortKey(key); // Switch key, start desc
+      setSortDirection('desc');
+    }
   };
 
   const sortedAssets = [...assets].sort((a, b) => {
-    if (sortDirection === 'desc') {
-      return b.annualizedYield - a.annualizedYield;
-    } else {
-      return a.annualizedYield - b.annualizedYield;
+    let aVal, bVal;
+    switch (sortKey) {
+      case 'yield':
+        aVal = a.annualizedYield;
+        bVal = b.annualizedYield;
+        break;
+      case 'oi':
+        aVal = parseFloat(a.openInterest);
+        bVal = parseFloat(b.openInterest);
+        break;
+      case 'price':
+        aVal = a.currentPrice;
+        bVal = b.currentPrice;
+        break;
+      case 'leverage':
+        aVal = a.maxLeverage;
+        bVal = b.maxLeverage;
+        break;
+      default:
+        return 0;
     }
+    const dir = sortDirection === 'desc' ? -1 : 1;
+    return (aVal > bVal ? 1 : aVal < bVal ? -1 : 0) * dir;
   });
 
   const getFundingPercent = (funding: string) => {
@@ -130,24 +154,58 @@ export default function Home() {
   };
 
   const getCurrentPrice = (price: number) => {
-    return `$${price.toFixed(2)}`; // USD, 2 decimals!
+    if (price < 1) {
+      return `$${price.toFixed(4)}`; // < $1: 4 decimals (e.g., $0.0039)
+    } else if (price < 100) {
+      return `$${price.toFixed(3)}`; // $1-99: 3 decimals (e.g., $12.345)
+    } else {
+      return `$${price.toFixed(2)}`; // $100+: 2 decimals (e.g., $65,432.10)
+    }
   };
 
-  const getArrow = () => {
-    return sortDirection === 'desc' ? '▾' : '▴'; // Triangle arrows!
+  const getArrow = (key: 'yield' | 'oi' | 'price' | 'leverage') => {
+    if (sortKey !== key) return '↕'; // Neutral symbol for sortable awareness!
+    return sortDirection === 'desc' ? '▾' : '▴'; // Full arrow when active
   };
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Hyperliquid Delta Neutral Yields</h1>
       <div className="flex justify-between items-center mb-4">
-        <p className="text-sm text-gray-600">Current funding-based yields for long spot/short perp strategies. Only active perps shown! Click arrow to sort.</p>
+        <p className="text-sm text-gray-600">Current funding-based yields for long spot/short perp strategies. Only active perps shown! Click headers to sort.</p>
         <p className="text-sm text-purple-600">HLP Yield {hlpYield ? `${hlpYield.toFixed(2)}%` : 'Loading...'}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border border-gray-300">
           <thead>
-            <tr className="bg-gray-50"><th className="px-4 py-2 text-left">Asset</th><th className="px-4 py-2 text-left">Current Funding (8h)</th><th className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100" onClick={handleSort}>Annualized Yield (%) {getArrow()}</th><th className="px-4 py-2 text-left">Open Interest</th><th className="px-4 py-2 text-left">Current Price (USD)</th><th className="px-4 py-2 text-left">Max Leverage</th></tr>
+            <tr className="bg-gray-50">
+              <th className="px-4 py-2 text-left">Asset</th>
+              <th className="px-4 py-2 text-left">Current Funding (8h)</th>
+              <th 
+                className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100" 
+                onClick={() => handleSort('yield')}
+              >
+                Annualized Yield (%) {getArrow('yield')}
+              </th>
+              <th 
+                className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100" 
+                onClick={() => handleSort('oi')}
+              >
+                Open Interest {getArrow('oi')}
+              </th>
+              <th 
+                className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100" 
+                onClick={() => handleSort('price')}
+              >
+                Current Price (USD) {getArrow('price')}
+              </th>
+              <th 
+                className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100" 
+                onClick={() => handleSort('leverage')}
+              >
+                Max Leverage {getArrow('leverage')}
+              </th>
+            </tr>
           </thead>
           <tbody>
             {loading ? (
