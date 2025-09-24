@@ -58,8 +58,8 @@ async function fetchCandles(coin: string): Promise<number[]> {
   console.log(`Candles for ${coin}:`, candles);
   console.log(`Number of candles for ${coin}: ${candles.length}`);
   if (candles.length === 0) return [];
-  candles.sort((a: any, b: any) => (a.t || 0) - (b.t || 0));
-  return candles.map((candle: any) => parseFloat(candle.c || '0'));
+  candles.sort((a: { t?: number }, b: { t?: number }) => (a.t || 0) - (b.t || 0));
+  return candles.map((candle: { c?: string }) => parseFloat(candle.c || '0'));
 }
 
 // Computes daily returns from close prices: (close - prev_close) / prev_close
@@ -135,7 +135,6 @@ async function fetchCorrMatrix(assets: Asset[]): Promise<{ matrix: Record<string
 
 // The page component (loads on /corr)
 export default function CorrPage() {
-  const [assets, setAssets] = useState<Asset[]>([]);
   const [corrMatrix, setCorrMatrix] = useState<Record<string, Record<string, {corr: number; lowData: boolean}>>>({});
   const [sortedAssets, setSortedAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,7 +153,6 @@ export default function CorrPage() {
         if (data && now - timestamp < 604800000) { // <7 days + safety check for data
           setCorrMatrix(data.matrix);
           setSortedAssets(data.sortedAssets);
-          setAssets(data.assets || []);
           setLoading(false);
           useCache = true;
           console.log('Used cached corr data (fresh <7 days)');
@@ -186,7 +184,6 @@ export default function CorrPage() {
               };
             })
             .filter((asset): asset is Asset => asset !== null);
-          setAssets(activeAssets);
 
           const { matrix, sortedAssets: validSorted } = await fetchCorrMatrix(activeAssets);
           setCorrMatrix(matrix);
@@ -198,7 +195,6 @@ export default function CorrPage() {
             data: { // Wrapped in 'data' for safety
               matrix,
               sortedAssets: validSorted,
-              assets: activeAssets
             }
           }));
           console.log('Fetched & cached fresh corr data');
