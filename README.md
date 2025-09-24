@@ -8,7 +8,7 @@ A real-time dashboard for monitoring annualized yields from delta-neutral strate
 - Sortable table with funding rates, open interest, and max leverage.
 - HLP vault yield integration for comparison.
 
-Deployed on Vercel: [hyperdn-table.vercel.app](https://hyperdn-table.vercel.app)
+Deployed on Vercel: [hyperdn-table.vercel.app](https://hlyield.vercel.app)
 
 ## Setup
 1. Clone the repo: `git clone https://github.com/yourusername/hyperdn-table.git`
