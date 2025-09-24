@@ -173,7 +173,10 @@ export default function Home() {
       <h1 className="text-2xl font-bold mb-4">Hyperliquid Delta Neutral Yields</h1>
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-gray-600">Current funding-based yields for long spot/short perp strategies. Only active perps shown! Click headers to sort.</p>
-        <p className="text-sm text-purple-600">HLP Yield {hlpYield ? `${hlpYield.toFixed(2)}%` : 'Loading...'}</p>
+        <div className="flex items-center space-x-4">
+          <p className="text-sm text-purple-600">HLP Yield {hlpYield ? `${hlpYield.toFixed(2)}%` : 'Loading...'}</p>
+          <a href="/corr" className="text-blue-600 hover:underline text-sm">View Correlation Matrix</a>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border border-gray-300">
